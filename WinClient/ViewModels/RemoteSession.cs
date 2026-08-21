@@ -97,7 +97,7 @@ public class RemoteSession : INotifyPropertyChanged, IDisposable
 
     #region 公共启动
 
-    public Task StartDiscoveryAsync() => Discovery.StartAsync();
+    public Task<(bool ok, string error)> StartDiscoveryAsync() => Discovery.StartAsync();
 
     #endregion
 

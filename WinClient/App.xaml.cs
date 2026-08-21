@@ -1,5 +1,6 @@
 using SysWin = System.Windows;
 using WinClient.ViewModels;
+using WinClient.Models;
 using WpfApp = System.Windows.Application;
 
 namespace WinClient;
@@ -26,14 +27,15 @@ public partial class App : WpfApp
             win.Show();
 
             // 开启局域网设备发现
-            try
+            var (ok, error) = await _session.StartDiscoveryAsync();
+            if (ok)
             {
-                await _session.StartDiscoveryAsync();
-                _session.Status = "设备发现已开启，正在搜索局域网内的远程设备…";
+                var ip = _session.Discovery.LocalIpAddress;
+                _session.Status = $"设备发现已开启 · 本机 IP：{ip} · 端口 {Ports.UDP_DISCOVER}";
             }
-            catch (Exception ex)
+            else
             {
-                _session.Status = "设备发现启动失败：" + ex.Message;
+                _session.Status = $"设备发现启动失败：{error}。请检查网络连接和防火墙设置。";
             }
         }
         catch (Exception ex)

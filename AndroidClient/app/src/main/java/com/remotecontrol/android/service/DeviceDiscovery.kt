@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.InetAddress
-import java.net.MulticastSocket
 import java.net.NetworkInterface
 import java.nio.charset.StandardCharsets
 
@@ -25,11 +25,14 @@ import java.nio.charset.StandardCharsets
  * 局域网 UDP 广播发现：
  * - 每 3 秒在 23000 端口广播自己的设备信息
  * - 监听同端口，维护在线设备列表 (StateFlow)
+ *
+ * 注意：需要 CHANGE_WIFI_MULTICAST_STATE 权限获取 MulticastLock 才能接收广播包
  */
 class DeviceDiscovery(private val ctx: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
 
     val localInfo = DiscoverPacket(
         deviceId = java.util.UUID.randomUUID().toString(),
@@ -43,11 +46,21 @@ class DeviceDiscovery(private val ctx: Context) {
 
     fun start() {
         if (job != null) return
+
+        // 获取 WiFi 多播锁，防止系统丢弃广播包
+        val wifiMgr = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        multicastLock = wifiMgr.createMulticastLock("RemoteControlDiscovery")
+        multicastLock?.setReferenceCounted(false)
+        multicastLock?.acquire()
+
         job = scope.launch {
-            val broadcastSocket = MulticastSocket(Ports.UDP_DISCOVER)
-            broadcastSocket.soTimeout = 2000
-            broadcastSocket.broadcast = true
-            runCatching { broadcastSocket.reuseAddress = true }
+            val socket = DatagramSocket().apply {
+                reuseAddress = true
+                broadcast = true
+                soTimeout = 2000
+                bind(java.net.InetSocketAddress(Ports.UDP_DISCOVER))
+            }
+
             val broadcastAddr = InetAddress.getByName("255.255.255.255")
 
             // 广播循环
@@ -56,9 +69,9 @@ class DeviceDiscovery(private val ctx: Context) {
                     runCatching {
                         val data = localInfo.toJson().toString().toByteArray(StandardCharsets.UTF_8)
                         val p = DatagramPacket(data, data.size, broadcastAddr, Ports.UDP_DISCOVER)
-                        broadcastSocket.send(p)
-                        // 单网卡单播一次全部可用子网：如果有 VPN/多网卡，再把各网段也广播一次
-                        runCatching { broadcastAllInterfaces(data) }
+                        socket.send(p)
+                        // 在每个可用网络接口上单独广播（处理多网卡/VPN场景）
+                        broadcastOnAllInterfaces(socket, data)
                     }
                     delay(3000)
                 }
@@ -70,7 +83,7 @@ class DeviceDiscovery(private val ctx: Context) {
                 val pending = mutableMapOf<String, OnlineDevice>()
                 while (true) {
                     val pkt = DatagramPacket(buf, buf.size)
-                    val ok = runCatching { broadcastSocket.receive(pkt) }
+                    val ok = runCatching { socket.receive(pkt) }
                     if (ok.isSuccess) {
                         val str = String(pkt.data, 0, pkt.length, StandardCharsets.UTF_8)
                         runCatching { JSONObject(str) }
@@ -100,7 +113,7 @@ class DeviceDiscovery(private val ctx: Context) {
         }
     }
 
-    private fun broadcastAllInterfaces(data: ByteArray) {
+    private fun broadcastOnAllInterfaces(socket: DatagramSocket, data: ByteArray) {
         val en = NetworkInterface.getNetworkInterfaces()
         while (en.hasMoreElements()) {
             val ni = en.nextElement()
@@ -108,10 +121,8 @@ class DeviceDiscovery(private val ctx: Context) {
             for (ia in ni.interfaceAddresses) {
                 val broadcast = ia.broadcast ?: continue
                 runCatching {
-                    val s = java.net.DatagramSocket()
-                    s.broadcast = true
                     val p = DatagramPacket(data, data.size, broadcast, Ports.UDP_DISCOVER)
-                    s.send(p); s.close()
+                    socket.send(p)
                 }
             }
         }
@@ -119,6 +130,8 @@ class DeviceDiscovery(private val ctx: Context) {
 
     fun stop() {
         job?.cancel(); job = null
+        multicastLock?.let { if (it.isHeld) it.release() }
+        multicastLock = null
     }
 
     fun release() { stop(); scope.cancel() }
