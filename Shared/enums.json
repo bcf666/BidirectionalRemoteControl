@@ -1,0 +1,54 @@
+{
+  "description": "Remote Control Protocol - shared message & event type enums (v1.0)",
+  "MessageType": {
+    "HELLO":       1,
+    "AUTH":        2,
+    "AUTH_ACK":    3,
+    "VIDEO":      16,
+    "INPUT":      17,
+    "FILE_META":  32,
+    "FILE_ACK":   33,
+    "FILE_CHUNK": 34,
+    "FILE_DONE":  35,
+    "CTRL":       48,
+    "CTRL_ACK":   49,
+    "PING":      240,
+    "PONG":      241,
+    "BYE":       255
+  },
+  "InputType": {
+    "MOUSE_MOVE":  "MOUSE_MOVE",
+    "MOUSE_DOWN":  "MOUSE_DOWN",
+    "MOUSE_UP":    "MOUSE_UP",
+    "MOUSE_WHEEL": "MOUSE_WHEEL",
+    "KEY_DOWN":    "KEY_DOWN",
+    "KEY_UP":      "KEY_UP",
+    "KEY_TEXT":    "KEY_TEXT",
+    "TOUCH_DOWN":  "TOUCH_DOWN",
+    "TOUCH_MOVE":  "TOUCH_MOVE",
+    "TOUCH_UP":    "TOUCH_UP"
+  },
+  "MouseButton": {
+    "LEFT":   "LEFT",
+    "RIGHT":  "RIGHT",
+    "MIDDLE": "MIDDLE",
+    "X1":     "X1",
+    "X2":     "X2"
+  },
+  "DeviceType": {
+    "PC":    "PC",
+    "PHONE": "PHONE"
+  },
+  "CtrlCommand": {
+    "SET_QUALITY":     "setQuality",
+    "PAUSE_MIRROR":    "pauseMirror",
+    "RESUME_MIRROR":   "resumeMirror",
+    "SWITCH_DIRECTION":"switchDirection",
+    "REQUEST_CLIPBOARD":"requestClipboard",
+    "CLIPBOARD_DATA":  "clipboardData"
+  },
+  "Ports": {
+    "UDP_DISCOVER": 23000,
+    "TCP_DEFAULT":  23001
+  }
+}

@@ -1,0 +1,43 @@
+# Build outputs
+bin/
+obj/
+output/
+build/
+
+# .NET
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Android / Gradle
+.gradle/
+local.properties
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.vs/
+.idea/
+.vscode/
+.trae/
+*.swp
+*.swo
+*~
+
+# Kotlin internal
+.kotlin/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Kotlin
+*.class
+
+# Distribution
+*.zip
+!RemoteControl.Win.zip

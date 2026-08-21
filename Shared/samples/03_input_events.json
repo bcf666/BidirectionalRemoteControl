@@ -1,0 +1,11 @@
+[
+  { "type": "MOUSE_MOVE", "x": 0.5, "y": 0.3, "ts": 1710000000000 },
+  { "type": "MOUSE_DOWN", "x": 0.5, "y": 0.3, "button": "LEFT" },
+  { "type": "MOUSE_UP",   "x": 0.5, "y": 0.3, "button": "LEFT" },
+  { "type": "MOUSE_WHEEL","x": 0.5, "y": 0.3, "delta": 120, "axis": "V" },
+  { "type": "KEY_DOWN",   "key": "Enter" },
+  { "type": "KEY_TEXT",   "text": "你好，Hello 123！" },
+  { "type": "TOUCH_DOWN", "x": 0.5, "y": 0.3, "pointerId": 0 },
+  { "type": "TOUCH_MOVE", "x": 0.52, "y": 0.31, "pointerId": 0 },
+  { "type": "TOUCH_UP",   "x": 0.52, "y": 0.31, "pointerId": 0 }
+]

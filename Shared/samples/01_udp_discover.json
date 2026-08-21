@@ -1,0 +1,8 @@
+{
+  "type": "DISCOVER",
+  "deviceId": "a1b2c3d4-1234-5678-90ab-cdef01234567",
+  "deviceName": "ALIENWARE-PC",
+  "deviceType": "PC",
+  "listenPort": 23001,
+  "protocolVersion": 1
+}

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">双向远程控制</string>
+    <string name="accessibility_desc">启用此服务后，允许 PC 端远程控制本设备的屏幕触摸与键盘输入（仅在连接期间生效）。</string>
+</resources>

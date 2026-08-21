@@ -1,0 +1,173 @@
+<Window x:Class="WinClient.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WinClient"
+        mc:Ignorable="d"
+        Title="双向远程控制 · PC 端" Height="720" Width="1180"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E" Foreground="#F5F5F5">
+
+    <Window.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="#2A2A2A"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" Opacity="0.4" BlurRadius="8" ShadowDepth="2"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="#F0F0F0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4,6">
+            <TextBlock Text="🖥️ 双向远程控制 (PC 端)" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Status, StringFormat=状态：{0}}"
+                       VerticalAlignment="Center" Margin="20,0,0,0" Foreground="#8CD3FF"/>
+        </StackPanel>
+
+        <!-- 主体 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左侧：控制区 + 设备列表 -->
+            <StackPanel>
+                <!-- 模式切换 -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="▶ 会话方向" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+                        <DockPanel>
+                            <TextBlock Text="当前模式：" VerticalAlignment="Center"/>
+                            <TextBlock Margin="6,0,0,0" VerticalAlignment="Center">
+                                <Run Text="{Binding Direction}"/>
+                            </TextBlock>
+                        </DockPanel>
+                        <Button Content="切换方向 (主控/被控)" Command="{Binding SwitchDirectionCommand}"
+                                Margin="0,10,0,4"/>
+
+                        <Separator Margin="0,8,0,8"/>
+
+                        <TextBlock Text="▶ 连接方式" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+
+                        <CheckBox Content="我作为服务器等待连接（否则作为客户端连接下面选中的设备）"
+                                  IsChecked="{Binding ActAsServer}" Margin="0,4"/>
+
+                        <DockPanel Margin="0,4">
+                            <TextBlock Text="监听端口：" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding ListenPort}" VerticalContentAlignment="Center"
+                                     Width="80" IsReadOnly="False" Background="#3A3A3A" Foreground="White"
+                                     BorderThickness="0"/>
+                            <Button Content="开始监听" Command="{Binding StartServerCommand}"
+                                    IsEnabled="{Binding NotConnected}"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- 设备列表 -->
+                <Border Style="{StaticResource Card}" Height="360">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                            <TextBlock Text="📡 附近在线设备" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+                        </StackPanel>
+                        <Button DockPanel.Dock="Bottom"
+                                Content="连接选中的设备 (作为客户端)"
+                                Command="{Binding ConnectAsClientCommand}"
+                                IsEnabled="{Binding NotConnected}"/>
+                        <ListBox Margin="0,6" Background="#1E1E1E" BorderThickness="0"
+                                 ItemsSource="{Binding Discovery.Devices}"
+                                 SelectedItem="{Binding SelectedDevice}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Width="32" FontSize="18" Text="📱"
+                                                   Visibility="{Binding DeviceType, Converter={StaticResource DeviceIconConv}, ConverterParameter=PHONE}"/>
+                                        <TextBlock Grid.Column="0" Width="32" FontSize="18" Text="💻"
+                                                   Visibility="{Binding DeviceType, Converter={StaticResource DeviceIconConv}, ConverterParameter=PC}"/>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock FontWeight="Bold" Text="{Binding DeviceName}"/>
+                                            <TextBlock Text="{Binding IpAddress, StringFormat=IP：{0}}" FontSize="11" Foreground="#BBB"/>
+                                            <TextBlock FontSize="11" Foreground="#8CD3FF">
+                                                <Run Text="{Binding DeviceType}"/> · 端口：<Run Text="{Binding ListenPort}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- 右侧：远程桌面显示区 -->
+            <Border Style="{StaticResource Card}">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="🖼️ 远程屏幕 / 镜像预览" FontWeight="Bold" FontSize="15" VerticalAlignment="Center"/>
+                        <Button Margin="24,0,0,0" Content="断开连接" Command="{Binding DisconnectCommand}"
+                                IsEnabled="{Binding IsConnected}" Background="#C62828"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Foreground="#888" Margin="0,6,0,0"
+                               Text="{Binding Status, StringFormat=提示：当前 {0}。若为我主控，可直接在画面上点击/拖拽/右键/滚轮/键盘输入。}"/>
+                    <Grid Background="#0E0E0E">
+                        <!-- 远程画面 Image：鼠标/键盘在此捕获并发送 -->
+                        <Image x:Name="RemoteScreenImage"
+                               Stretch="Uniform"
+                               Source="{Binding Decoder.Bitmap, IsAsync=False}"
+                               MouseMove="RemoteScreenImage_OnMouseMove"
+                               MouseDown="RemoteScreenImage_OnMouseDown"
+                               MouseUp="RemoteScreenImage_OnMouseUp"
+                               MouseWheel="RemoteScreenImage_OnMouseWheel"
+                               KeyDown="RemoteScreenImage_OnKeyDown"
+                               KeyUp="RemoteScreenImage_OnKeyUp"
+                               Focusable="True"
+                               AllowDrop="True"
+                               Drop="RemoteScreenImage_OnDrop"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- 底部状态栏 -->
+        <StatusBar Grid.Row="2" Background="Transparent" Foreground="#CCC">
+            <StatusBarItem Content="{Binding Status}"/>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock>协议 v1.0 · MJPEG · TCP/UDP</TextBlock>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

@@ -1,0 +1,22 @@
+{
+  "deviceId": "a1b2c3d4-1234-5678-90ab-cdef01234567",
+  "deviceName": "ALIENWARE-PC",
+  "deviceType": "PC",
+  "protocolVersion": 1,
+  "capabilities": {
+    "maxWidth": 2560,
+    "maxHeight": 1440,
+    "maxFps": 60,
+    "codecs": ["MJPEG", "H264"],
+    "supportsFileTransfer": true,
+    "supportsControl": true
+  },
+  "preferences": {
+    "width": 1280,
+    "height": 720,
+    "fps": 20,
+    "codec": "MJPEG",
+    "quality": 80
+  },
+  "listenPort": 23001
+}
