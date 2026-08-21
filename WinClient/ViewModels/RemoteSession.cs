@@ -30,7 +30,7 @@ public class RemoteSession : INotifyPropertyChanged, IDisposable
     public VideoDecoder          Decoder    { get; } = new();
     public FileTransferService   Files      { get; }
 
-    public ControlDirection Direction { get; private set; } = ControlDirection.IControlPeer;
+    public ControlDirection Direction { get; set; } = ControlDirection.IControlPeer;
 
     #region 绑定属性
 

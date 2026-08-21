@@ -88,7 +88,7 @@
                                      Width="80" IsReadOnly="False" Background="#3A3A3A" Foreground="White"
                                      BorderThickness="0"/>
                             <Button Content="开始监听" Command="{Binding StartServerCommand}"
-                                    IsEnabled="{Binding NotConnected}"/>
+                                    IsEnabled="{Binding NotConnected, Mode=OneWay}"/>
                         </DockPanel>
                     </StackPanel>
                 </Border>
@@ -102,7 +102,7 @@
                         <Button DockPanel.Dock="Bottom"
                                 Content="连接选中的设备 (作为客户端)"
                                 Command="{Binding ConnectAsClientCommand}"
-                                IsEnabled="{Binding NotConnected}"/>
+                                IsEnabled="{Binding NotConnected, Mode=OneWay}"/>
                         <ListBox Margin="0,6" Background="#1E1E1E" BorderThickness="0"
                                  ItemsSource="{Binding Discovery.Devices}"
                                  SelectedItem="{Binding SelectedDevice}">
@@ -146,7 +146,7 @@
                         <!-- 远程画面 Image：鼠标/键盘在此捕获并发送 -->
                         <Image x:Name="RemoteScreenImage"
                                Stretch="Uniform"
-                               Source="{Binding Decoder.Bitmap, IsAsync=False}"
+                               Source="{Binding Decoder.Bitmap, Mode=OneWay}"
                                MouseMove="RemoteScreenImage_OnMouseMove"
                                MouseDown="RemoteScreenImage_OnMouseDown"
                                MouseUp="RemoteScreenImage_OnMouseUp"

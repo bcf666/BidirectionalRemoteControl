@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 using WpfApp = System.Windows.Application;
 using SysWin = System.Windows;
 using SysWinMedia = System.Windows.Media;
@@ -10,12 +12,16 @@ namespace WinClient.Services;
 /// MJPEG 解码器：把收到的 JPEG 字节解码并输出可绑定到 WPF Image 的 WriteableBitmap
 /// 调用 Decode(jpegBytes) 后通过 Bitmap 属性绑定。
 /// </summary>
-public class VideoDecoder
+public class VideoDecoder : INotifyPropertyChanged
 {
     private SysWinMediaImaging.WriteableBitmap? _bmp;
-    public SysWinMediaImaging.WriteableBitmap? Bitmap => _bmp;
+    public SysWinMediaImaging.WriteableBitmap? Bitmap
+    {
+        get => _bmp;
+        private set { _bmp = value; OnProp(); }
+    }
 
-    public event Action? FrameUpdated;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public void Decode(byte[] jpeg)
     {
@@ -52,7 +58,7 @@ public class VideoDecoder
                 _bmp.WritePixels(new SysWin.Int32Rect(0, 0, w, h), pixels, stride, 0);
                 _bmp.AddDirtyRect(new SysWin.Int32Rect(0, 0, w, h));
                 _bmp.Unlock();
-                FrameUpdated?.Invoke();
+                OnProp(nameof(Bitmap));
             });
         }
         catch
@@ -60,6 +66,9 @@ public class VideoDecoder
             // 损坏帧忽略
         }
     }
+
+    private void OnProp([CallerMemberName] string? n = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
 }
 
 public static class JpegEncoder
