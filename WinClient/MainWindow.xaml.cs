@@ -34,7 +34,6 @@ public partial class MainWindow : SysWin.Window
     public MainWindow()
     {
         InitializeComponent();
-        Resources.Add("DeviceIconConv", new DeviceTypeVisibilityConverter());
     }
 
     private SysWin.Point _last = new(-1, -1);

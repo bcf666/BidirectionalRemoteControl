@@ -12,26 +12,35 @@ public partial class App : WpfApp
     {
         base.OnStartup(e);
 
-        // Per-monitor DPI Aware：确保坐标计算精确
-        try { System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.PerMonitorV2); } catch { /* ignore */ }
-
-        _session = new RemoteSession();
-        var win = new MainWindow { DataContext = _session };
-        win.Closed += (_, _) =>
-        {
-            _session.Dispose();
-        };
-        win.Show();
-
-        // 开启局域网设备发现
         try
         {
-            await _session.StartDiscoveryAsync();
-            _session.Status = "设备发现已开启，正在搜索局域网内的远程设备…";
+            // Per-monitor DPI Aware：确保坐标计算精确
+            try { System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.PerMonitorV2); } catch { /* ignore */ }
+
+            _session = new RemoteSession();
+            var win = new MainWindow { DataContext = _session };
+            win.Closed += (_, _) =>
+            {
+                _session?.Dispose();
+            };
+            win.Show();
+
+            // 开启局域网设备发现
+            try
+            {
+                await _session.StartDiscoveryAsync();
+                _session.Status = "设备发现已开启，正在搜索局域网内的远程设备…";
+            }
+            catch (Exception ex)
+            {
+                _session.Status = "设备发现启动失败：" + ex.Message;
+            }
         }
         catch (Exception ex)
         {
-            _session.Status = "设备发现启动失败：" + ex.Message;
+            SysWin.MessageBox.Show($"启动失败：{ex.Message}\n\n堆栈：{ex.StackTrace}", "双向远程控制 启动错误",
+                SysWin.MessageBoxButton.OK, SysWin.MessageBoxImage.Error);
+            Shutdown();
         }
     }
 }

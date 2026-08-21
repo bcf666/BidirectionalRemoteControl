@@ -10,6 +10,7 @@
         Background="#1E1E1E" Foreground="#F5F5F5">
 
     <Window.Resources>
+        <local:DeviceTypeVisibilityConverter x:Key="DeviceIconConv"/>
         <Style x:Key="Card" TargetType="Border">
             <Setter Property="Background" Value="#2A2A2A"/>
             <Setter Property="CornerRadius" Value="8"/>
