@@ -68,15 +68,19 @@ class RemoteSession(app: Application) : AndroidViewModel(app) {
     var pendingProjectionData: Intent? = null
 
     init {
-        net.onDisconnected {
-            viewModelScope.launch { _status.emit("已断开连接") }
-            stopCapture()
-        }
-        viewModelScope.launch {
-            net.packets.collect { pkt -> onPacket(pkt) }
-        }
-        ScreenCaptureService.sendJpeg = { bytes ->
-            net.sendBytes(MessageType.VIDEO, bytes)
+        try {
+            net.onDisconnected {
+                viewModelScope.launch { _status.emit("已断开连接") }
+                stopCapture()
+            }
+            viewModelScope.launch {
+                net.packets.collect { pkt -> onPacket(pkt) }
+            }
+            ScreenCaptureService.sendJpeg = { bytes ->
+                net.sendBytes(MessageType.VIDEO, bytes)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("RemoteSession", "Init failed", e)
         }
     }
 

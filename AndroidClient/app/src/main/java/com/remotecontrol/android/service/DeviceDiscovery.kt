@@ -2,6 +2,7 @@ package com.remotecontrol.android.service
 
 import android.content.Context
 import android.net.wifi.WifiManager
+import android.util.Log
 import com.remotecontrol.android.protocol.DiscoverPacket
 import com.remotecontrol.android.protocol.OnlineDevice
 import com.remotecontrol.android.protocol.Ports
@@ -30,6 +31,10 @@ import java.nio.charset.StandardCharsets
  */
 class DeviceDiscovery(private val ctx: Context) {
 
+    companion object {
+        private const val TAG = "DeviceDiscovery"
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
     private var multicastLock: WifiManager.MulticastLock? = null
@@ -47,90 +52,118 @@ class DeviceDiscovery(private val ctx: Context) {
     fun start() {
         if (job != null) return
 
-        // 获取 WiFi 多播锁，防止系统丢弃广播包
-        val wifiMgr = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        multicastLock = wifiMgr.createMulticastLock("RemoteControlDiscovery")
-        multicastLock?.setReferenceCounted(false)
-        multicastLock?.acquire()
+        try {
+            // 获取 WiFi 多播锁，防止系统丢弃广播包
+            val wifiMgr = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+            if (wifiMgr != null) {
+                multicastLock = wifiMgr.createMulticastLock("RemoteControlDiscovery")
+                multicastLock?.setReferenceCounted(false)
+                multicastLock?.acquire()
+                Log.d(TAG, "MulticastLock acquired")
+            } else {
+                Log.w(TAG, "WifiManager is null, skipping MulticastLock")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to acquire MulticastLock: ${e.message}")
+            // 继续执行，没有锁也能工作，只是可能丢包
+        }
 
         job = scope.launch {
-            val socket = DatagramSocket().apply {
-                reuseAddress = true
-                broadcast = true
-                soTimeout = 2000
-                bind(java.net.InetSocketAddress(Ports.UDP_DISCOVER))
-            }
-
-            val broadcastAddr = InetAddress.getByName("255.255.255.255")
-
-            // 广播循环
-            val sendJob = launch {
-                while (true) {
-                    runCatching {
-                        val data = localInfo.toJson().toString().toByteArray(StandardCharsets.UTF_8)
-                        val p = DatagramPacket(data, data.size, broadcastAddr, Ports.UDP_DISCOVER)
-                        socket.send(p)
-                        // 在每个可用网络接口上单独广播（处理多网卡/VPN场景）
-                        broadcastOnAllInterfaces(socket, data)
-                    }
-                    delay(3000)
+            var socket: DatagramSocket? = null
+            try {
+                socket = DatagramSocket().apply {
+                    reuseAddress = true
+                    broadcast = true
+                    soTimeout = 2000
+                    bind(java.net.InetSocketAddress(Ports.UDP_DISCOVER))
                 }
-            }
+                Log.d(TAG, "DatagramSocket bound to port ${Ports.UDP_DISCOVER}")
 
-            // 接收循环
-            val recvJob = launch {
-                val buf = ByteArray(2048)
-                val pending = mutableMapOf<String, OnlineDevice>()
-                while (true) {
-                    val pkt = DatagramPacket(buf, buf.size)
-                    val ok = runCatching { socket.receive(pkt) }
-                    if (ok.isSuccess) {
-                        val str = String(pkt.data, 0, pkt.length, StandardCharsets.UTF_8)
-                        runCatching { JSONObject(str) }
-                            .onSuccess { j ->
-                                if (j.optString("type").equals("DISCOVER", ignoreCase = true)) {
-                                    val d = DiscoverPacket.fromJson(j)
-                                    if (d.deviceId == localInfo.deviceId) return@onSuccess
-                                    val ip = pkt.address.hostAddress ?: return@onSuccess
-                                    pending[d.deviceId] = OnlineDevice(
-                                        deviceId = d.deviceId, deviceName = d.deviceName,
-                                        deviceType = d.deviceType, ipAddress = ip,
-                                        listenPort = d.listenPort,
-                                        lastSeenMs = System.currentTimeMillis()
-                                    )
+                val broadcastAddr = InetAddress.getByName("255.255.255.255")
+
+                // 广播循环
+                val sendJob = launch {
+                    while (true) {
+                        runCatching {
+                            val data = localInfo.toJson().toString().toByteArray(StandardCharsets.UTF_8)
+                            val p = DatagramPacket(data, data.size, broadcastAddr, Ports.UDP_DISCOVER)
+                            socket?.send(p)
+                            // 在每个可用网络接口上单独广播（处理多网卡/VPN场景）
+                            broadcastOnAllInterfaces(socket, data)
+                        }.onFailure {
+                            Log.w(TAG, "Broadcast failed: ${it.message}")
+                        }
+                        delay(3000)
+                    }
+                }
+
+                // 接收循环
+                val recvJob = launch {
+                    val buf = ByteArray(2048)
+                    val pending = mutableMapOf<String, OnlineDevice>()
+                    while (true) {
+                        val pkt = DatagramPacket(buf, buf.size)
+                        val ok = runCatching { socket?.receive(pkt) }
+                        if (ok.isSuccess) {
+                            val str = String(pkt.data, 0, pkt.length, StandardCharsets.UTF_8)
+                            runCatching { JSONObject(str) }
+                                .onSuccess { j ->
+                                    if (j.optString("type").equals("DISCOVER", ignoreCase = true)) {
+                                        val d = DiscoverPacket.fromJson(j)
+                                        if (d.deviceId == localInfo.deviceId) return@onSuccess
+                                        val ip = pkt.address?.hostAddress ?: return@onSuccess
+                                        pending[d.deviceId] = OnlineDevice(
+                                            deviceId = d.deviceId, deviceName = d.deviceName,
+                                            deviceType = d.deviceType, ipAddress = ip,
+                                            listenPort = d.listenPort,
+                                            lastSeenMs = System.currentTimeMillis()
+                                        )
+                                    }
+                                }.onFailure {
+                                    Log.w(TAG, "Failed to parse received packet: ${it.message}")
                                 }
-                            }
+                        }
+                        // 定期剔旧 + 更新 UI State
+                        val cutoff = System.currentTimeMillis() - 15000L
+                        val live = pending.values.filter { it.lastSeenMs > cutoff }
+                        pending.entries.removeAll { it.value.lastSeenMs <= cutoff }
+                        _devices.emit(live.sortedByDescending { it.lastSeenMs })
                     }
-                    // 定期剔旧 + 更新 UI State
-                    val cutoff = System.currentTimeMillis() - 15000L
-                    val live = pending.values.filter { it.lastSeenMs > cutoff }
-                    pending.entries.removeAll { it.value.lastSeenMs <= cutoff }
-                    _devices.emit(live.sortedByDescending { it.lastSeenMs })
                 }
-            }
 
-            sendJob.join(); recvJob.join()
+                sendJob.join(); recvJob.join()
+            } catch (e: Exception) {
+                Log.e(TAG, "Device discovery failed", e)
+            } finally {
+                runCatching { socket?.close() }
+            }
         }
     }
 
-    private fun broadcastOnAllInterfaces(socket: DatagramSocket, data: ByteArray) {
-        val en = NetworkInterface.getNetworkInterfaces()
-        while (en.hasMoreElements()) {
-            val ni = en.nextElement()
-            if (ni.isLoopback || !ni.isUp) continue
-            for (ia in ni.interfaceAddresses) {
-                val broadcast = ia.broadcast ?: continue
-                runCatching {
-                    val p = DatagramPacket(data, data.size, broadcast, Ports.UDP_DISCOVER)
-                    socket.send(p)
+    private fun broadcastOnAllInterfaces(socket: DatagramSocket?, data: ByteArray) {
+        try {
+            val en = NetworkInterface.getNetworkInterfaces()
+            while (en.hasMoreElements()) {
+                val ni = en.nextElement()
+                if (ni.isLoopback || !ni.isUp) continue
+                for (ia in ni.interfaceAddresses) {
+                    val broadcast = ia.broadcast ?: continue
+                    runCatching {
+                        val p = DatagramPacket(data, data.size, broadcast, Ports.UDP_DISCOVER)
+                        socket?.send(p)
+                    }
                 }
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to broadcast on all interfaces: ${e.message}")
         }
     }
 
     fun stop() {
         job?.cancel(); job = null
-        multicastLock?.let { if (it.isHeld) it.release() }
+        try {
+            multicastLock?.let { if (it.isHeld) it.release() }
+        } catch (_: Exception) { }
         multicastLock = null
     }
 
